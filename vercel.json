@@ -1,11 +1,16 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
+  "build": {
+    "env": {
+      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
+      "SHARP_FORCE_GLOBAL_LIBVIPS": "false"
     }
-  ],
+  },
+  "functions": {
+    "server.js": {
+      "runtime": "@vercel/node"
+    }
+  },
   "routes": [
     {
       "src": "/.*",
