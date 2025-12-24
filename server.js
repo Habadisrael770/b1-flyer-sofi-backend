@@ -89,11 +89,60 @@ app.post('/api/auth/register', (req, res) => {
     res.status(201).json({ 
       success: true, 
       message: 'User registered successfully',
+      token: 'mock-jwt-token-' + Date.now(),
       user: { id: Date.now(), email, name }
     });
   } else {
     res.status(400).json({ success: false, message: 'Email and password required' });
   }
+});
+
+// Google Auth endpoint
+app.post('/api/auth/google', (req, res) => {
+  const { credential } = req.body;
+  if (credential) {
+    // In production, verify the Google token here
+    // For now, we'll accept any credential and create a mock user
+    try {
+      // Decode the JWT to get user info (simplified - in production use google-auth-library)
+      const base64Url = credential.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(Buffer.from(base64, 'base64').toString().split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+      const googleUser = JSON.parse(jsonPayload);
+      
+      res.json({ 
+        success: true, 
+        token: 'google-jwt-token-' + Date.now(),
+        user: { 
+          id: googleUser.sub || Date.now(), 
+          email: googleUser.email || 'google-user@gmail.com', 
+          name: googleUser.name || 'Google User',
+          picture: googleUser.picture || null,
+          provider: 'google'
+        }
+      });
+    } catch (e) {
+      // If decoding fails, create a generic Google user
+      res.json({ 
+        success: true, 
+        token: 'google-jwt-token-' + Date.now(),
+        user: { 
+          id: Date.now(), 
+          email: 'google-user@gmail.com', 
+          name: 'Google User',
+          provider: 'google'
+        }
+      });
+    }
+  } else {
+    res.status(400).json({ success: false, message: 'Google credential required' });
+  }
+});
+
+// Google Auth redirect (for OAuth flow)
+app.get('/api/auth/google', (req, res) => {
+  // Redirect to Google OAuth - in production, implement full OAuth flow
+  res.redirect('https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=' + encodeURIComponent(process.env.FRONTEND_URL || 'https://b1-flyer-sofi-frontend.onrender.com') + '/auth/callback&response_type=code&scope=email%20profile');
 });
 
 // Business routes (mock)
