@@ -1,69 +1,142 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security and middleware
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
-}));
-app.use(compression());
+// Middleware
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
-
-// MongoDB connection (optional - server works without it)
-const MONGO_URI = process.env.MONGO_URI;
-if (MONGO_URI) {
-  mongoose.connect(MONGO_URI)
-    .then(() => console.log('✅ MongoDB connected successfully'))
-    .catch(err => console.error('❌ MongoDB connection error:', err.message));
-} else {
-  console.log('⚠️ No MONGO_URI provided - running without database');
-}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// API routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/products', require('./routes/productsRoutes'));
-app.use('/api/flyers', require('./routes/flyersRoutes'));
-app.use('/api/business', require('./routes/route15'));
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
-// Static files for uploaded images
+// Mock data for products
+const mockProducts = [
+  { id: 1, name: 'מוצר לדוגמה 1', price: 29.99, image: '/uploads/sample1.jpg' },
+  { id: 2, name: 'מוצר לדוגמה 2', price: 49.99, image: '/uploads/sample2.jpg' },
+  { id: 3, name: 'מוצר לדוגמה 3', price: 19.99, image: '/uploads/sample3.jpg' }
+];
+
+// Mock data for flyers
+const mockFlyers = [
+  { id: 1, name: 'פלייר לדוגמה', template: 'basic', createdAt: new Date().toISOString() }
+];
+
+// API Routes
+app.get('/api/products', (req, res) => {
+  res.json({ success: true, data: mockProducts });
+});
+
+app.get('/api/products/:id', (req, res) => {
+  const product = mockProducts.find(p => p.id === parseInt(req.params.id));
+  if (product) {
+    res.json({ success: true, data: product });
+  } else {
+    res.status(404).json({ success: false, message: 'Product not found' });
+  }
+});
+
+app.post('/api/products', (req, res) => {
+  const newProduct = { id: mockProducts.length + 1, ...req.body };
+  mockProducts.push(newProduct);
+  res.status(201).json({ success: true, data: newProduct });
+});
+
+app.get('/api/flyers', (req, res) => {
+  res.json({ success: true, data: mockFlyers });
+});
+
+app.post('/api/flyers', (req, res) => {
+  const newFlyer = { id: mockFlyers.length + 1, ...req.body, createdAt: new Date().toISOString() };
+  mockFlyers.push(newFlyer);
+  res.status(201).json({ success: true, data: newFlyer });
+});
+
+// Auth routes (mock)
+app.post('/api/auth/login', (req, res) => {
+  const { email, password } = req.body;
+  if (email && password) {
+    res.json({ 
+      success: true, 
+      token: 'mock-jwt-token-' + Date.now(),
+      user: { id: 1, email, name: 'Test User' }
+    });
+  } else {
+    res.status(400).json({ success: false, message: 'Email and password required' });
+  }
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const { email, password, name } = req.body;
+  if (email && password) {
+    res.status(201).json({ 
+      success: true, 
+      message: 'User registered successfully',
+      user: { id: Date.now(), email, name }
+    });
+  } else {
+    res.status(400).json({ success: false, message: 'Email and password required' });
+  }
+});
+
+// Business routes (mock)
+app.get('/api/business', (req, res) => {
+  res.json({ 
+    success: true, 
+    data: { 
+      id: 1, 
+      name: 'העסק שלי', 
+      logo: '/uploads/logo.png',
+      address: 'תל אביב, ישראל'
+    }
+  });
+});
+
+// Static files
 app.use('/uploads', express.static('uploads'));
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Server Error:', err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal server error',
-    error: process.env.NODE_ENV === 'production' ? {} : err
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'B1-Flyer Backend API',
+    version: '1.0.0',
+    endpoints: ['/health', '/api/products', '/api/flyers', '/api/auth/login', '/api/business']
   });
 });
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err.stack);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error'
+  });
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 B1-Flyer Backend Server running on port ${PORT}`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
