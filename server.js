@@ -97,6 +97,20 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
+// Profile endpoint - ADDED
+app.get('/api/auth/profile', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    // Mock profile response
+    res.json({ 
+      success: true, 
+      user: { id: 1, email: 'user@example.com', name: 'Test User' }
+    });
+  } else {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
+});
+
 // Google Auth endpoint
 app.post('/api/auth/google', (req, res) => {
   const { credential } = req.body;
@@ -166,7 +180,7 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'B1-Flyer Backend API',
     version: '1.0.0',
-    endpoints: ['/health', '/api/products', '/api/flyers', '/api/auth/login', '/api/business']
+    endpoints: ['/health', '/api/products', '/api/flyers', '/api/auth/login', '/api/auth/profile', '/api/business']
   });
 });
 
